@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Analyse des Commerces à Proximité</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background: #f8fafc;
+      color: #333;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+    header {
+      background: linear-gradient(135deg, #007bff, #00aaff);
+      color: white;
+      padding: 1.5rem;
+      text-align: center;
+      border-bottom: 4px solid #0056b3;
+    }
+    .accordion-button {
+      font-weight: bold;
+      color: #0056b3;
+      background: #e9f3ff;
+    }
+    .accordion-button:not(.collapsed) {
+      background: #007bff;
+      color: white;
+    }
+    table th {
+      background-color: #f1f8ff;
+      color: #004a99;
+    }
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      margin-top: 2rem;
+      font-size: 0.9rem;
+      color: #777;
+    }
+    .loader {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-top: 2rem;
+    }
+    .spinner-border {
+      width: 3rem;
+      height: 3rem;
+      color: #007bff;
+    }
+    /* Fade-in animation */
+    .fade-in {
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    .fade-in.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Analyse des Commerces à Proximité</h1>
+    <p>Entrez une adresse et une durée maximale pour explorer les commerces proches.</p>
+  </header>
+
+  <main class="container my-4">
+    <!-- Search Form -->
+    <div class="card mb-4 p-3 shadow-sm">
+      <form id="searchForm" class="row g-3 align-items-end">
+        <div class="col-md-8">
+          <label for="address" class="form-label">Adresse</label>
+          <input type="text" id="address" class="form-control" placeholder="Rue Marcelin Berthelot, 77186 Noisiel" required>
+        </div>
+        <div class="col-md-2">
+          <label for="maxDuration" class="form-label">Durée max (min)</label>
+          <input type="number" id="maxDuration" class="form-control" value="10" min="1">
+        </div>
+        <div class="col-md-2 d-grid">
+          <button type="submit" class="btn btn-primary">Rechercher</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Ville Idéale Badge -->
+    <div id="villeIdealeContainer" class="mb-4"></div>
+
+    <!-- Loader -->
+    <div id="loader" class="loader" style="display:none;">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Chargement...</span>
+      </div>
+    </div>
+
+    <!-- Results Accordion -->
+    <div id="results" class="accordion"></div>
+  </main>
+
+  <footer>
+    © 2025 - Analyse des Commerces à Proximité | Powered by votre API locale
+  </footer>
+
+  <script>
+    const resultsContainer = document.getElementById("results");
+    const loader = document.getElementById("loader");
+
+    // Ville Idéale display
+    function renderVilleIdeale(link, score, bgColor) {
+      const container = document.getElementById("villeIdealeContainer");
+      if (!link) {
+        container.innerHTML = "";
+        return;
+      }
+      container.innerHTML = `
+        <div class="card p-3 mb-3 shadow-sm">
+          <h5>Ville Idéale</h5>
+          <a href="${link}" target="_blank" style="
+            display:inline-block; 
+            padding:0.3rem 0.6rem; 
+            background-color:${bgColor || '#99AD00'}; 
+            color:white; 
+            border-radius:5px;
+            font-weight:bold;
+          ">
+            ${score || 'N/A'} / 10
+          </a>
+        </div>
+      `;
+    }
+
+    // Fetch API data
+    async function fetchData(address, maxDuration = 10) {
+      const apiUrl = `http://localhost:8080/api/analyze?maxDuration=${encodeURIComponent(maxDuration)}&address=${encodeURIComponent(address)}`;
+
+      resultsContainer.innerHTML = "";
+      loader.style.display = "flex";
+
+      try {
+        const res = await fetch(apiUrl);
+        if (!res.ok) throw new Error("Erreur de requête API");
+        const data = await res.json();
+
+        // Display Ville Idéale
+        renderVilleIdeale(data.villeIdealeLink, data.villeIdealeScore, data.villeIdealeBgColor);
+
+        // Display businesses
+        renderData(data.nearbyBusinesses);
+      } catch (err) {
+        resultsContainer.innerHTML = `<div class="alert alert-danger mt-3">Erreur : ${err.message}</div>`;
+      } finally {
+        loader.style.display = "none";
+      }
+    }
+
+    // Render businesses
+    function renderData(businesses) {
+      if (!businesses || businesses.length === 0) {
+        resultsContainer.innerHTML = `<div class="alert alert-info">Aucun commerce trouvé.</div>`;
+        return;
+      }
+
+      const grouped = {};
+      businesses.forEach(item => {
+        const type = item.type?.toLowerCase() || "autres";
+        if (!grouped[type]) grouped[type] = [];
+        grouped[type].push(item);
+      });
+
+      const preferredOrder = [
+        "transport rer",
+        "supermarket",
+        "bakery",
+        "butcher",
+        "fast_food",
+        "restaurant",
+        "school"
+      ];
+
+      const sortedTypes = Object.keys(grouped).sort((a, b) => {
+        const ai = preferredOrder.indexOf(a);
+        const bi = preferredOrder.indexOf(b);
+        if (ai === -1 && bi === -1) return a.localeCompare(b);
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
+
+      resultsContainer.innerHTML = "";
+      let idx = 0;
+
+      sortedTypes.forEach(type => {
+        const category = grouped[type];
+        const sectionId = `collapse-${idx++}`;
+
+        const accordionItem = document.createElement("div");
+        accordionItem.className = "accordion-item mb-3 fade-in";
+
+        accordionItem.innerHTML = `
+          <h2 class="accordion-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#${sectionId}" aria-expanded="true">
+              ${type.replace(/_/g, " ")} (${category.length})
+            </button>
+          </h2>
+          <div id="${sectionId}" class="accordion-collapse collapse show" data-bs-parent="#results">
+            <div class="accordion-body">
+              <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                  <thead>
+                    <tr>
+                      <th>Nom</th>
+                      <th>Distance</th>
+                      <th>Durée</th>
+                      <th>Google Maps</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${category.map(biz => `
+                      <tr>
+                        <td>${biz.name}</td>
+                        <td>${biz.distance}</td>
+                        <td>${biz.duration}</td>
+                        <td><a href="${biz.mapsUrl}" target="_blank">Voir</a></td>
+                      </tr>
+                    `).join("")}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        `;
+        resultsContainer.appendChild(accordionItem);
+
+        // Trigger fade-in
+        setTimeout(() => accordionItem.classList.add("show"), 50);
+      });
+    }
+
+    // Handle search form
+    document.getElementById("searchForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const address = document.getElementById("address").value.trim();
+      const maxDuration = document.getElementById("maxDuration").value.trim() || 10;
+      if (!address) return;
+      await fetchData(address, maxDuration);
+    });
+
+    // Auto-call if URL has params
+    const params = new URLSearchParams(window.location.search);
+    const prefillAddress = params.get("address");
+    const prefillDuration = params.get("maxDuration") || 10;
+
+    if (prefillAddress) {
+      document.getElementById("address").value = prefillAddress;
+      document.getElementById("maxDuration").value = prefillDuration;
+      fetchData(prefillAddress, prefillDuration);
+    }
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
