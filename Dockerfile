@@ -1,5 +1,5 @@
 # Stage 1: Build the Spring Boot app
-FROM openjdk:19-jdk AS build
+FROM eclipse-temurin:17-jdk AS build
 WORKDIR /app
 
 # Copy Maven files and source
@@ -12,8 +12,8 @@ COPY src src
 RUN chmod +x ./mvnw
 RUN ./mvnw clean package -DskipTests
 
-# Stage 2: Runtime image
-FROM openjdk:19-jdk
+# Stage 2: Runtime image (smaller, clean)
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 
 # Copy built JAR from the build stage
