@@ -30,14 +30,14 @@ public class AddressAnalyzerController {
 
         if (address != null && !address.isBlank()) {
             businesses = placesService.getNearbyBusinesses(address, maxDuration);
-            transitRoutes = transitService.getTransitRoutes(address);
+            //transitRoutes = transitService.getTransitRoutes(address);
         } else {
             throw new IllegalArgumentException("Either address must be provided.");
         }
 
         return Map.of(
-                "nearbyBusinesses", businesses,
-                "transitRoutes", transitRoutes
+                "nearbyBusinesses", businesses
+                //"transitRoutes", transitRoutes
                 //,"villeIdealeLink", CityLinks.choosenCity
         );
     }
