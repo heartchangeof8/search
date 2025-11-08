@@ -1,7 +1,11 @@
 services:
   - type: web
-    name: spring-api
-    env: java
-    buildCommand: ./gradlew build
-    startCommand: java -jar build/libs/searcher-0.0.1-SNAPSHOT.jar
-    repo: https://github.com/heartchangeof8/searcher
+    name: search-api
+    env: docker
+    plan: free
+    autoDeploy: true
+    dockerContext: .
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: 8080
